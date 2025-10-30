@@ -1,0 +1,28 @@
+---
+page_title: "note-signer Provider"
+subcategory: ""
+description: |-
+  Provider for generating note signing key pairs using the Go sumdb/note package.
+---
+
+# note-signer Provider
+
+This provider allows you to generate cryptographic key pairs for signing notes using the Go `sumdb/note` package. The key pairs generated are compatible with the Go module checksum database format.
+
+## Example Usage
+
+```terraform
+terraform {
+  required_providers {
+    note-signer = {
+      source = "bobcallaway/note-signer"
+    }
+  }
+}
+
+provider "note-signer" {}
+```
+
+## Schema
+
+The provider does not require any configuration.

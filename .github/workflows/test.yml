@@ -1,0 +1,77 @@
+name: Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+                - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+                  with:
+                    persist-credentials: false
+                - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 'latest'
+          terraform_wrapper: false
+      - run: go mod download
+      - run: go build -v .
+      - name: Run linters
+        uses: golangci/golangci-lint-action@25e2cdc5eb1d7a04fdc45ff538f1a00e960ae128 # v8.0.0
+        with:
+          version: latest
+      - name: Generate documentation
+        run: go generate
+      - name: Check for uncommitted changes
+        run: |
+          git diff --exit-code || (echo "ERROR: Generated files have uncommitted changes. Please run 'go generate' and commit the changes." && exit 1)
+
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 'latest'
+          terraform_wrapper: false
+      - run: go mod download
+      - run: go build -o terraform-provider-note-signer
+      - name: Override provider for testing
+        env:
+          GH_WORKSPACE: ${{ github.workspace }}
+        run: |
+          cat > ~/.terraformrc <<EOF
+          provider_installation {
+            dev_overrides {
+              "bobcallaway/note-signer" = "${GH_WORKSPACE}"
+            }
+            direct {}
+          }
+          EOF
+      - name: Run Terraform tests
+        run: terraform test -verbose
+        env:
+          TF_ACC: "1"
+
+  go-test:
+    name: Go Unit Tests
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - run: go mod download
+      - run: go test -v -cover -timeout=120s -parallel=4 ./...
